@@ -1,0 +1,702 @@
+openapi: 3.0.3
+info:
+  title: Spoon配信サポートAPI
+  description: Spoon配信者向けの配信活動支援ツールAPI
+  version: 1.0.0
+  contact:
+    name: API Support
+    email: support@example.com
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://api.spoon-support.com/v1
+    description: Production server
+  - url: https://staging-api.spoon-support.com/v1
+    description: Staging server
+
+paths:
+  /auth/login:
+    post:
+      tags:
+        - Authentication
+      summary: ユーザーログイン
+      description: OAuth認証またはメール/パスワードでログイン
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: ログイン成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: 認証失敗
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /users/profile:
+    get:
+      tags:
+        - Users
+      summary: ユーザープロフィール取得
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: プロフィール情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+    put:
+      tags:
+        - Users
+      summary: ユーザープロフィール更新
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+  /gallery:
+    get:
+      tags:
+        - Gallery
+      summary: ギャラリー一覧取得
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [date, title, views]
+            default: date
+      responses:
+        '200':
+          description: ギャラリー一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GalleryResponse'
+    post:
+      tags:
+        - Gallery
+      summary: コンテンツアップロード
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/UploadRequest'
+      responses:
+        '201':
+          description: アップロード成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GalleryItem'
+
+  /gallery/{id}:
+    get:
+      tags:
+        - Gallery
+      summary: コンテンツ詳細取得
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: コンテンツ詳細
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GalleryItem'
+    put:
+      tags:
+        - Gallery
+      summary: コンテンツ更新
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGalleryRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GalleryItem'
+    delete:
+      tags:
+        - Gallery
+      summary: コンテンツ削除
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: 削除成功
+
+  /stream-results:
+    get:
+      tags:
+        - Stream Results
+      summary: 配信リザルト一覧取得
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: 配信リザルト一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamResultsResponse'
+    post:
+      tags:
+        - Stream Results
+      summary: 配信リザルト登録
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateStreamResultRequest'
+      responses:
+        '201':
+          description: 登録成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StreamResult'
+
+  /stream-results/ocr:
+    post:
+      tags:
+        - Stream Results
+      summary: スクリーンショット自動読み込み
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                screenshot:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: OCR処理成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OCRResponse'
+
+  /events:
+    get:
+      tags:
+        - Events
+      summary: イベント一覧取得
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: イベント一覧
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EventsResponse'
+    post:
+      tags:
+        - Events
+      summary: イベント作成
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEventRequest'
+      responses:
+        '201':
+          description: 作成成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Event'
+
+  /analytics/stats:
+    get:
+      tags:
+        - Analytics
+      summary: 統計情報取得
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [week, month, year]
+            default: month
+      responses:
+        '200':
+          description: 統計情報
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AnalyticsResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        provider:
+          type: string
+          enum: [email, google, twitter, facebook]
+        code:
+          type: string
+          description: OAuth認証コード
+      required:
+        - provider
+
+    AuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        token:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserProfile'
+        expiresIn:
+          type: integer
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+          format: email
+        name:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+        planType:
+          type: string
+          enum: [free, premium]
+        status:
+          type: string
+          enum: [active, inactive, suspended]
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+
+    GalleryResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/GalleryItem'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    GalleryItem:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        description:
+          type: string
+        fileUrl:
+          type: string
+          format: uri
+        fileType:
+          type: string
+        fileSize:
+          type: integer
+        viewCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UploadRequest:
+      type: object
+      properties:
+        file:
+          type: string
+          format: binary
+        title:
+          type: string
+        description:
+          type: string
+      required:
+        - file
+        - title
+
+    UpdateGalleryRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+
+    StreamResultsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/StreamResult'
+        pagination:
+          $ref: '#/components/schemas/Pagination'
+
+    StreamResult:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        streamDate:
+          type: string
+          format: date
+        hearts:
+          type: integer
+        spoons:
+          type: integer
+        totalListeners:
+          type: integer
+        activeListeners:
+          type: integer
+        bestRank:
+          type: integer
+        endRank:
+          type: integer
+        screenshotUrl:
+          type: string
+          format: uri
+        listeners:
+          type: array
+          items:
+            $ref: '#/components/schemas/ListenerData'
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateStreamResultRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        streamDate:
+          type: string
+          format: date
+        hearts:
+          type: integer
+        spoons:
+          type: integer
+        totalListeners:
+          type: integer
+        activeListeners:
+          type: integer
+        bestRank:
+          type: integer
+        endRank:
+          type: integer
+        listeners:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateListenerRequest'
+      required:
+        - title
+        - streamDate
+
+    ListenerData:
+      type: object
+      properties:
+        id:
+          type: string
+        listenerName:
+          type: string
+        heartsGiven:
+          type: integer
+        spoonsGiven:
+          type: integer
+        isGalleryRegistered:
+          type: boolean
+
+    CreateListenerRequest:
+      type: object
+      properties:
+        listenerName:
+          type: string
+        heartsGiven:
+          type: integer
+        spoonsGiven:
+          type: integer
+        isGalleryRegistered:
+          type: boolean
+      required:
+        - listenerName
+
+    OCRResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          $ref: '#/components/schemas/ExtractedStreamData'
+        confidence:
+          type: number
+          format: float
+
+    ExtractedStreamData:
+      type: object
+      properties:
+        title:
+          type: string
+        hearts:
+          type: integer
+        spoons:
+          type: integer
+        totalListeners:
+          type: integer
+        activeListeners:
+          type: integer
+        bestRank:
+          type: integer
+        endRank:
+          type: integer
+        listeners:
+          type: array
+          items:
+            $ref: '#/components/schemas/CreateListenerRequest'
+
+    EventsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Event'
+
+    Event:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [active, completed, cancelled]
+        participantCount:
+          type: integer
+        templateConfig:
+          type: object
+        createdAt:
+          type: string
+          format: date-time
+
+    CreateEventRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        templateConfig:
+          type: object
+      required:
+        - name
+        - startDate
+        - endDate
+
+    AnalyticsResponse:
+      type: object
+      properties:
+        totalHearts:
+          type: integer
+        totalSpoons:
+          type: integer
+        totalListeners:
+          type: integer
+        bestRank:
+          type: integer
+        streamCount:
+          type: integer
+        averageHearts:
+          type: number
+          format: float
+        chartData:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChartDataPoint'
+
+    ChartDataPoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        hearts:
+          type: integer
+        spoons:
+          type: integer
+        listeners:
+          type: integer
+
+    Pagination:
+      type: object
+      properties:
+        page:
+          type: integer
+        limit:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        code:
+          type: string
+        details:
+          type: object
+      required:
+        - error
+        - message

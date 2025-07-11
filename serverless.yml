@@ -1,0 +1,332 @@
+service: spoon-streaming-app
+
+frameworkVersion: '3'
+
+provider:
+  name: aws
+  runtime: nodejs18.x
+  region: ap-northeast-1
+  stage: ${opt:stage, 'dev'}
+  memorySize: 512
+  timeout: 30
+  environment:
+    STAGE: ${self:provider.stage}
+    REGION: ${self:provider.region}
+    DATABASE_URL: ${ssm:/spoon-app/${self:provider.stage}/database-url}
+    REDIS_URL: ${ssm:/spoon-app/${self:provider.stage}/redis-url}
+    OPENAI_API_KEY: ${ssm:/spoon-app/${self:provider.stage}/openai-api-key}
+    STRIPE_SECRET_KEY: ${ssm:/spoon-app/${self:provider.stage}/stripe-secret-key}
+    JWT_SECRET: ${ssm:/spoon-app/${self:provider.stage}/jwt-secret}
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - s3:GetObject
+            - s3:PutObject
+            - s3:DeleteObject
+          Resource: 
+            - "arn:aws:s3:::spoon-app-uploads-${self:provider.stage}/*"
+        - Effect: Allow
+          Action:
+            - ssm:GetParameter
+            - ssm:GetParameters
+          Resource: 
+            - "arn:aws:ssm:${self:provider.region}:*:parameter/spoon-app/${self:provider.stage}/*"
+        - Effect: Allow
+          Action:
+            - states:StartExecution
+          Resource:
+            - "arn:aws:states:${self:provider.region}:*:stateMachine:SpoonAppBatchProcessing-${self:provider.stage}"
+        - Effect: Allow
+          Action:
+            - events:PutEvents
+          Resource:
+            - "arn:aws:events:${self:provider.region}:*:event-bus/spoon-app-${self:provider.stage}"
+
+functions:
+  # API Gateway統合Lambda
+  api:
+    handler: src/handlers/api.handler
+    events:
+      - http:
+          path: /{proxy+}
+          method: ANY
+          cors: true
+    environment:
+      UPLOAD_BUCKET: spoon-app-uploads-${self:provider.stage}
+
+  # OCR処理Lambda
+  ocr:
+    handler: src/handlers/ocr.handler
+    timeout: 300
+    memorySize: 1024
+    events:
+      - http:
+          path: /ocr
+          method: post
+          cors: true
+
+  # 統計処理Lambda
+  analytics:
+    handler: src/handlers/analytics.handler
+    timeout: 900
+    memorySize: 2048
+    events:
+      - schedule: rate(1 hour)
+
+  # バッチ処理Lambda
+  batchProcessor:
+    handler: src/handlers/batch.handler
+    timeout: 900
+    memorySize: 1024
+
+  # WebSocket接続管理
+  websocketConnect:
+    handler: src/handlers/websocket.connectHandler
+    events:
+      - websocket:
+          route: $connect
+
+  websocketDisconnect:
+    handler: src/handlers/websocket.disconnectHandler
+    events:
+      - websocket:
+          route: $disconnect
+
+  websocketDefault:
+    handler: src/handlers/websocket.defaultHandler
+    events:
+      - websocket:
+          route: $default
+
+  # リアルタイム通知
+  notificationHandler:
+    handler: src/handlers/notification.handler
+    events:
+      - eventBridge:
+          eventBus: spoon-app-${self:provider.stage}
+          pattern:
+            source: ["spoon.app"]
+            detail-type: ["Stream Event", "User Event"]
+
+  # Stripe Webhook
+  stripeWebhook:
+    handler: src/handlers/stripe.webhookHandler
+    events:
+      - http:
+          path: /stripe/webhook
+          method: post
+
+  # AI配信アドバイス
+  aiAdvice:
+    handler: src/handlers/ai-advice.handler
+    timeout: 300
+    memorySize: 1024
+    events:
+      - schedule: rate(1 day)
+
+plugins:
+  - serverless-webpack
+  - serverless-offline
+  - serverless-step-functions
+
+custom:
+  webpack:
+    webpackConfig: ./webpack.config.js
+    includeModules: true
+  
+  stepFunctions:
+    stateMachines:
+      batchProcessing:
+        name: SpoonAppBatchProcessing-${self:provider.stage}
+        definition:
+          Comment: "Spoon App Batch Processing"
+          StartAt: ProcessStreamData
+          States:
+            ProcessStreamData:
+              Type: Task
+              Resource: 
+                Fn::GetAtt: [batchProcessor, Arn]
+              Next: GenerateReports
+            GenerateReports:
+              Type: Task
+              Resource:
+                Fn::GetAtt: [analytics, Arn]
+              Next: GenerateAIAdvice
+            GenerateAIAdvice:
+              Type: Task
+              Resource:
+                Fn::GetAtt: [aiAdvice, Arn]
+              End: true
+
+resources:
+  Resources:
+    # AWS WAF
+    WebACL:
+      Type: AWS::WAFv2::WebACL
+      Properties:
+        Name: spoon-app-waf-${self:provider.stage}
+        Scope: CLOUDFRONT
+        DefaultAction:
+          Allow: {}
+        Rules:
+          - Name: AWSManagedRulesCommonRuleSet
+            Priority: 1
+            OverrideAction:
+              None: {}
+            Statement:
+              ManagedRuleGroupStatement:
+                VendorName: AWS
+                Name: AWSManagedRulesCommonRuleSet
+            VisibilityConfig:
+              SampledRequestsEnabled: true
+              CloudWatchMetricsEnabled: true
+              MetricName: CommonRuleSetMetric
+          - Name: AWSManagedRulesKnownBadInputsRuleSet
+            Priority: 2
+            OverrideAction:
+              None: {}
+            Statement:
+              ManagedRuleGroupStatement:
+                VendorName: AWS
+                Name: AWSManagedRulesKnownBadInputsRuleSet
+            VisibilityConfig:
+              SampledRequestsEnabled: true
+              CloudWatchMetricsEnabled: true
+              MetricName: KnownBadInputsRuleSetMetric
+          - Name: RateLimitRule
+            Priority: 3
+            Action:
+              Block: {}
+            Statement:
+              RateBasedStatement:
+                Limit: 2000
+                AggregateKeyType: IP
+            VisibilityConfig:
+              SampledRequestsEnabled: true
+              CloudWatchMetricsEnabled: true
+              MetricName: RateLimitRuleMetric
+        VisibilityConfig:
+          SampledRequestsEnabled: true
+          CloudWatchMetricsEnabled: true
+          MetricName: spoon-app-waf-${self:provider.stage}
+
+    # S3バケット（アップロード用）
+    UploadBucket:
+      Type: AWS::S3::Bucket
+      Properties:
+        BucketName: spoon-app-uploads-${self:provider.stage}
+        CorsConfiguration:
+          CorsRules:
+            - AllowedHeaders: ['*']
+              AllowedMethods: [GET, PUT, POST, DELETE]
+              AllowedOrigins: ['*']
+              MaxAge: 3000
+        NotificationConfiguration:
+          EventBridgeConfiguration:
+            EventBridgeEnabled: true
+
+    # EventBridge カスタムバス
+    EventBus:
+      Type: AWS::Events::EventBus
+      Properties:
+        Name: spoon-app-${self:provider.stage}
+
+    # CloudFront Distribution（WAF付き）
+    CloudFrontDistribution:
+      Type: AWS::CloudFront::Distribution
+      Properties:
+        DistributionConfig:
+          WebAclId: !GetAtt WebACL.Arn
+          Origins:
+            - Id: S3Origin
+              DomainName: spoon-app-uploads-${self:provider.stage}.s3.amazonaws.com
+              S3OriginConfig:
+                OriginAccessIdentity: ''
+            - Id: ApiGatewayOrigin
+              DomainName:
+                Fn::Join:
+                  - ''
+                  - - Ref: ApiGatewayRestApi
+                    - '.execute-api.'
+                    - ${self:provider.region}
+                    - '.amazonaws.com'
+              CustomOriginConfig:
+                HTTPPort: 443
+                OriginProtocolPolicy: https-only
+            - Id: WebSocketOrigin
+              DomainName:
+                Fn::Join:
+                  - ''
+                  - - Ref: WebsocketsApi
+                    - '.execute-api.'
+                    - ${self:provider.region}
+                    - '.amazonaws.com'
+              CustomOriginConfig:
+                HTTPPort: 443
+                OriginProtocolPolicy: https-only
+          DefaultCacheBehavior:
+            TargetOriginId: S3Origin
+            ViewerProtocolPolicy: redirect-to-https
+            AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+            CachedMethods: [GET, HEAD, OPTIONS]
+            ForwardedValues:
+              QueryString: false
+              Cookies:
+                Forward: none
+          CacheBehaviors:
+            - PathPattern: '/api/*'
+              TargetOriginId: ApiGatewayOrigin
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+              CachedMethods: [GET, HEAD, OPTIONS]
+              ForwardedValues:
+                QueryString: true
+                Headers: ['Authorization', 'Content-Type']
+            - PathPattern: '/ws/*'
+              TargetOriginId: WebSocketOrigin
+              ViewerProtocolPolicy: redirect-to-https
+              AllowedMethods: [GET, HEAD, OPTIONS, PUT, POST, PATCH, DELETE]
+              ForwardedValues:
+                QueryString: true
+                Headers: ['*']
+          Enabled: true
+          DefaultRootObject: index.html
+
+  Outputs:
+    ApiGatewayUrl:
+      Description: "API Gateway URL"
+      Value:
+        Fn::Join:
+          - ''
+          - - 'https://'
+            - Ref: ApiGatewayRestApi
+            - '.execute-api.'
+            - ${self:provider.region}
+            - '.amazonaws.com/'
+            - ${self:provider.stage}
+    
+    WebSocketUrl:
+      Description: "WebSocket API URL"
+      Value:
+        Fn::Join:
+          - ''
+          - - 'wss://'
+            - Ref: WebsocketsApi
+            - '.execute-api.'
+            - ${self:provider.region}
+            - '.amazonaws.com/'
+            - ${self:provider.stage}
+    
+    CloudFrontUrl:
+      Description: "CloudFront Distribution URL"
+      Value:
+        Fn::Join:
+          - ''
+          - - 'https://'
+            - Fn::GetAtt: [CloudFrontDistribution, DomainName]
+    
+    UploadBucketName:
+      Description: "Upload S3 Bucket Name"
+      Value: spoon-app-uploads-${self:provider.stage}

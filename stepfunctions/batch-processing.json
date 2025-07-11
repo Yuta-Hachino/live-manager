@@ -1,0 +1,93 @@
+{
+  "Comment": "Spoon App Batch Processing Workflow",
+  "StartAt": "ProcessStreamData",
+  "States": {
+    "ProcessStreamData": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::lambda:invoke",
+      "Parameters": {
+        "FunctionName": "${AnalyticsLambdaArn}",
+        "Payload": {
+          "action": "processStreamData",
+          "input.$": "$"
+        }
+      },
+      "Next": "CheckProcessingResult"
+    },
+    "CheckProcessingResult": {
+      "Type": "Choice",
+      "Choices": [
+        {
+          "Variable": "$.Payload.success",
+          "BooleanEquals": true,
+          "Next": "GenerateReports"
+        }
+      ],
+      "Default": "ProcessingFailed"
+    },
+    "GenerateReports": {
+      "Type": "Parallel",
+      "Branches": [
+        {
+          "StartAt": "GenerateUserReports",
+          "States": {
+            "GenerateUserReports": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${AnalyticsLambdaArn}",
+                "Payload": {
+                  "action": "generateUserReports",
+                  "input.$": "$"
+                }
+              },
+              "End": true
+            }
+          }
+        },
+        {
+          "StartAt": "GenerateSystemReports",
+          "States": {
+            "GenerateSystemReports": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${AnalyticsLambdaArn}",
+                "Payload": {
+                  "action": "generateSystemReports",
+                  "input.$": "$"
+                }
+              },
+              "End": true
+            }
+          }
+        }
+      ],
+      "Next": "SendNotifications"
+    },
+    "SendNotifications": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${NotificationTopicArn}",
+        "Message": "Batch processing completed successfully"
+      },
+      "Next": "Success"
+    },
+    "ProcessingFailed": {
+      "Type": "Task",
+      "Resource": "arn:aws:states:::sns:publish",
+      "Parameters": {
+        "TopicArn": "${NotificationTopicArn}",
+        "Message": "Batch processing failed"
+      },
+      "Next": "Fail"
+    },
+    "Success": {
+      "Type": "Succeed"
+    },
+    "Fail": {
+      "Type": "Fail"
+    }
+  }
+}
