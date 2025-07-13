@@ -64,7 +64,7 @@
     "pg": "latest",
     "pg-native": "latest",
     "react": "^18",
-    "react-day-picker": "8.10.1",
+    "react-day-picker": "^9.8.0",
     "react-dom": "^18",
     "react-dropzone": "latest",
     "react-hook-form": "^7.54.1",
