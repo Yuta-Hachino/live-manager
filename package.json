@@ -61,7 +61,6 @@
     "openai": "latest",
     "path": "latest",
     "pg": "latest",
-    "pg-native": "latest",
     "react": "^18",
     "react-day-picker": "^9.8.0",
     "react-dom": "^18",

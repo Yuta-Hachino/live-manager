@@ -34,15 +34,15 @@ type-check:
 
 # Docker開発環境起動
 docker-up:
-	docker-compose up -d
+	docker compose up -d
 
 # Docker環境停止
 docker-down:
-	docker-compose down
+	docker compose down
 
 # Docker本番環境起動
 docker-prod:
-	docker-compose -f docker-compose.prod.yml up -d
+	docker compose -f docker-compose.prod.yml up -d
 
 # データベースマイグレーション
 db-migrate:
