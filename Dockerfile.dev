@@ -1,17 +1,8 @@
-FROM node:18-alpine
+FROM node:20-alpine
 
+# corepack は enable 済み。追加作業ゼロ
 WORKDIR /app
-
-# 依存関係をコピーしてインストール
-COPY package*.json ./
-RUN npm ci
-
-# ソースコードをコピー
+COPY package.json ./
+RUN pnpm install
 COPY . .
-
-# アップロードディレクトリを作成
-RUN mkdir -p /app/uploads
-
-EXPOSE 3000
-
-CMD ["npm", "run", "dev"]
+CMD ["pnpm", "run", "dev"]
