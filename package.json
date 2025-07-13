@@ -51,7 +51,7 @@
     "embla-carousel-react": "8.5.1",
     "framer-motion": "latest",
     "fs": "latest",
-    "input-otp": "1.4.1",
+    "input-otp": "1.4.2",
     "ioredis": "latest",
     "js-yaml": "latest",
     "jsonwebtoken": "latest",
