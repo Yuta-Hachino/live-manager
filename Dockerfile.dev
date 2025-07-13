@@ -1,4 +1,4 @@
-FROM node:20-alpine
+FROM node:24-alpine
 
 # corepack は enable 済み。追加作業ゼロ
 WORKDIR /app
