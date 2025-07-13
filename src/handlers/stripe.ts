@@ -1,6 +1,7 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda"
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda"
 import Stripe from "stripe"
 import { Pool } from "pg"
+import logger from '../utils/logger';
 import { SSM, EventBridge } from "aws-sdk"
 
 const ssm = new SSM()
@@ -49,7 +50,7 @@ export const webhookHandler = async (event: APIGatewayProxyEvent): Promise<APIGa
     try {
       stripeEvent = stripe.webhooks.constructEvent(event.body!, sig!, webhookSecret)
     } catch (err) {
-      console.error("Webhook signature verification failed:", err)
+      logger.error('Webhook signature verification failed', { error: err });
       return {
         statusCode: 400,
         body: JSON.stringify({ error: "Webhook signature verification failed" }),
@@ -79,7 +80,7 @@ export const webhookHandler = async (event: APIGatewayProxyEvent): Promise<APIGa
         break
 
       default:
-        console.log(`Unhandled event type: ${stripeEvent.type}`)
+        logger.info(`Unhandled event type: ${stripeEvent.type}`);
     }
 
     return {
@@ -87,7 +88,7 @@ export const webhookHandler = async (event: APIGatewayProxyEvent): Promise<APIGa
       body: JSON.stringify({ received: true }),
     }
   } catch (error) {
-    console.error("Stripe webhook error:", error)
+    logger.error('Stripe webhook error', { error });
     return {
       statusCode: 500,
       body: JSON.stringify({ error: "Webhook processing failed" }),
