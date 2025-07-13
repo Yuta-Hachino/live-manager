@@ -1,8 +1,8 @@
 name: Security Scan
 
 on:
-  schedule:
-    - cron: '0 2 * * *' # 毎日午前2時に実行
+  # schedule:
+  #   - cron: '0 2 * * *' # 毎日午前2時に実行
   workflow_dispatch:
 
 jobs:
