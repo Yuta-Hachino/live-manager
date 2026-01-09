@@ -1,0 +1,262 @@
+{
+  "repository_name": "live-manager (Spoon配信サポートアプリ)",
+  "primary_languages": ["TypeScript"],
+  "frameworks": [
+    "Next.js 14",
+    "React 18",
+    "Tailwind CSS",
+    "AWS CDK",
+    "AWS Lambda",
+    "Radix UI (shadcn/ui)"
+  ],
+  "architecture_pattern": "Next.js App Router + Serverless Microservices (AWS)",
+  "code_quality_score": "6",
+  "strengths": [
+    "モダンな技術スタック (Next.js 14, TypeScript, Tailwind CSS)",
+    "AWS CDKによるInfrastructure as Code実装",
+    "CI/CDパイプライン (GitHub Actions) の整備",
+    "セキュリティスキャン (Trivy, Snyk) の統合",
+    "Docker multi-stage buildによる最適化",
+    "Winstonによる構造化ログシステム",
+    "shadcn/uiによる一貫したUIコンポーネント",
+    "レスポンシブデザイン対応",
+    "Framer Motionによる洗練されたアニメーション",
+    "Stripeによる決済システム基盤",
+    "OpenAI Vision APIによるOCR機能設計"
+  ],
+  "weaknesses": [
+    "テストコードが存在しない (単体テスト、統合テスト共に0件)",
+    "多くのAPIがモック実装のまま (auth, ocr, gallery等)",
+    "一部でconsole.logが残存 (例: src/handlers/stripe.ts:213)",
+    "依存関係に'latest'バージョン指定が多い (バージョン固定なし)",
+    "入力バリデーションが不十分 (Zodスキーマ未使用)",
+    "認証・認可が未実装 (モック状態)",
+    "エラーハンドリングが基本的 (詳細なエラー分類なし)",
+    "APIドキュメントが自動生成のみ (詳細なドキュメント不足)",
+    "型定義ファイル (types/) が最小限",
+    "S3 CORSが'*'で設定されておりセキュリティリスク"
+  ],
+  "technical_level": "Mid",
+  "detailed_findings": {
+    "technology_stack": {
+      "frontend": {
+        "framework": "Next.js 14.2.16",
+        "language": "TypeScript 5.x",
+        "styling": "Tailwind CSS 3.4.17",
+        "ui_library": "shadcn/ui (Radix UI)",
+        "animation": "Framer Motion",
+        "state_management": "React Hooks (useState, useEffect)",
+        "form_handling": "react-hook-form + zod",
+        "charts": "Recharts"
+      },
+      "backend": {
+        "runtime": "Node.js 18",
+        "framework": "Next.js API Routes + AWS Lambda",
+        "database": "PostgreSQL (Aurora Serverless)",
+        "cache": "Redis (ElastiCache)",
+        "ai_integration": "OpenAI GPT-4 Vision",
+        "payment": "Stripe",
+        "logging": "Winston"
+      },
+      "infrastructure": {
+        "iac": "AWS CDK",
+        "compute": "AWS Lambda",
+        "api": "API Gateway",
+        "cdn": "CloudFront",
+        "storage": "S3",
+        "database": "Aurora Serverless",
+        "cache": "ElastiCache Redis",
+        "secrets": "SSM Parameter Store, Secrets Manager"
+      },
+      "dependency_management": {
+        "package_manager": "pnpm 8.15.9",
+        "version_pinning": "部分的 (多くが'latest'指定)",
+        "known_issues": [
+          "25+の依存関係が'latest'バージョン",
+          "セキュリティ脆弱性の自動検出が困難"
+        ]
+      }
+    },
+    "code_quality": {
+      "directory_structure": {
+        "pattern": "Next.js App Router標準構成",
+        "organization": "良好",
+        "files": {
+          "typescript_files": 35,
+          "tsx_files": 76,
+          "total_components": "約80"
+        }
+      },
+      "coding_standards": {
+        "typescript_usage": "一貫性あり",
+        "eslint": "設定あり (next lint)",
+        "prettier": "未確認",
+        "naming_convention": {
+          "components": "PascalCase (良好)",
+          "functions": "camelCase (良好)",
+          "variables": "camelCase (良好)",
+          "files": "kebab-case (良好)"
+        }
+      },
+      "documentation": {
+        "readme": "詳細 (400行以上)",
+        "inline_comments": "日本語で適度に記述",
+        "api_documentation": "自動生成スクリプトあり",
+        "jsdoc": "なし"
+      },
+      "error_handling": {
+        "pattern": "try-catch基本実装",
+        "logging": "Winstonで構造化ログ",
+        "user_feedback": "基本的なエラーメッセージ",
+        "issues": [
+          "詳細なエラー分類がない",
+          "一部でconsole.error使用"
+        ]
+      },
+      "testing": {
+        "unit_tests": "なし",
+        "integration_tests": "なし",
+        "e2e_tests": "なし",
+        "test_coverage": "0%",
+        "ci_test_commands": "存在するがテストファイルなし"
+      }
+    },
+    "design_patterns": {
+      "architectural_patterns": [
+        "Component-Based Architecture",
+        "Serverless Microservices",
+        "Event-Driven (EventBridge)",
+        "Infrastructure as Code"
+      ],
+      "frontend_patterns": [
+        "Container/Presentational Components",
+        "Custom Hooks",
+        "Compound Components (UI Library)",
+        "Controlled Forms"
+      ],
+      "backend_patterns": [
+        "Handler Pattern (Lambda)",
+        "Repository Pattern (部分的)",
+        "Singleton (DB Connection Pool)"
+      ],
+      "separation_of_concerns": {
+        "score": "7/10",
+        "strengths": [
+          "app/, components/, lib/ の明確な分離",
+          "API routesとハンドラーの分離",
+          "UIコンポーネントの再利用性"
+        ],
+        "weaknesses": [
+          "ビジネスロジックとUIの混在 (app/page.tsx)",
+          "型定義の集中管理不足"
+        ]
+      },
+      "modularity": {
+        "score": "6/10",
+        "reusable_components": "約50以上",
+        "shared_utilities": "lib/utils.ts"
+      }
+    },
+    "security": {
+      "authentication": {
+        "status": "未実装 (モック)",
+        "planned": "OAuth 2.0 (Google, Twitter, Facebook)",
+        "jwt": "計画あり"
+      },
+      "authorization": {
+        "status": "未実装",
+        "rbac": "なし"
+      },
+      "input_validation": {
+        "schema_validation": "Zod設定あり (未使用)",
+        "sanitization": "未確認"
+      },
+      "secrets_management": {
+        "method": "AWS SSM Parameter Store + Secrets Manager",
+        "status": "良好"
+      },
+      "vulnerabilities": [
+        "CORS設定が'*' (要修正)",
+        "認証なしでAPIアクセス可能 (モック状態)",
+        "入力バリデーション不足",
+        "SSL設定: rejectUnauthorized: false (stripe.ts:36)"
+      ],
+      "security_scanning": {
+        "tools": ["Trivy", "Snyk", "npm audit"],
+        "ci_integration": "あり"
+      }
+    },
+    "devops": {
+      "ci_cd": {
+        "platform": "GitHub Actions",
+        "workflows": [
+          "ci-cd.yml (テスト、ビルド、デプロイ)",
+          "deploy.yml (デプロイ)",
+          "security-scan.yml (セキュリティスキャン)"
+        ],
+        "environments": ["staging", "production"]
+      },
+      "containerization": {
+        "docker": "あり (multi-stage build)",
+        "docker_compose": "参照あり (未確認)",
+        "optimization": "良好 (node:18-alpine)"
+      },
+      "environment_management": {
+        "method": ".env files + AWS SSM",
+        "gitignore": "適切に設定"
+      },
+      "monitoring": {
+        "logging": "Winston (ファイル + コンソール)",
+        "cloud_monitoring": "CloudWatch (計画)",
+        "alerting": "Slack通知設定あり"
+      }
+    },
+    "git_operations": {
+      "commit_history": {
+        "total_commits": 8,
+        "commit_style": "Conventional Commits",
+        "quality": "良好",
+        "examples": [
+          "refactor: replace console.log with structured logging system",
+          "fix: error of run dev",
+          "delete: unreferenced package date-fns"
+        ]
+      },
+      "branch_strategy": {
+        "main_branch": "main",
+        "feature_branches": "feature/*",
+        "pr_workflow": "あり"
+      },
+      "documentation": {
+        "readme": "充実 (400行以上)",
+        "contributing": "記載あり",
+        "changelog": "なし"
+      }
+    },
+    "recommendations": {
+      "critical": [
+        "テストコードの追加 (Jest + React Testing Library推奨)",
+        "認証・認可の本実装",
+        "依存関係のバージョン固定",
+        "CORS設定の厳格化"
+      ],
+      "high": [
+        "入力バリデーションスキーマの適用",
+        "モックAPIの本実装",
+        "エラーハンドリングの体系化",
+        "型定義の集中管理"
+      ],
+      "medium": [
+        "APIドキュメントの充実",
+        "E2Eテストの追加",
+        "パフォーマンスモニタリングの設定",
+        "コードカバレッジの計測"
+      ],
+      "low": [
+        "CHANGELOGの追加",
+        "コントリビューションガイドの詳細化",
+        "JSDocコメントの追加"
+      ]
+    }
+  }
+}
